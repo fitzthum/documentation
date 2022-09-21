@@ -336,7 +336,70 @@ Add configuration `aa_kbc_params= 'eaa_kbc::<$IP>:<$PORT>'` to agent config file
 
 ### Use offline SEV KBC and simple-kbs (SEV)
 
-TODO: add instructions for simple-kbs with encrypted images
+#### Install sevctl and Export SEV Certificate Chain
+
+[sevctl](https://github.com/enarx/sevctl) is the SEV command line utility and is needed to export the SEV certificate chain. Rust must be installed to build this tool.
+
+Clone the repository:
+
+```
+git clone https://github.com/virtee/sevctl.git
+```
+
+Build the utility:
+
+```
+(cd sevctl && cargo build)
+```
+
+If using the SEV kata configuration template file, the SEV certificate chain must be placed in `/opt/sev`. Export the SEV certificate chain using the following command:
+
+```
+mkdir -p /opt/sev
+./sevctl/target/debug/sevctl export -f /opt/sev/cert_chain.cert
+```
+
+#### Setup and Run the simple-kbs
+The [simple-kbs](https://github.com/confidential-containers/simple-kbs) is a basic key broker service that hosts secret storage and provides secret release policies configurable by container workload creators or users.
+
+The `simple-kbs` is a prototype implementation under development and is not intended for production use at this time.
+
+The SEV `simple-kbs` implementation allows for a policy to be set that verifies the guest launch measurement before releasing the secret used to encrypt the container image.
+
+Install jq (json parser), docker and the MySQL Client:
+
+* Debian Ubuntu:
+
+  ```
+  sudo apt install jq docker mysql-client
+  ```
+
+Clone the repository:
+```
+git clone https://github.com/confidential-containers/simple-kbs.git
+```
+
+Run the service with docker-compose:
+```
+(cd simple-kbs && sudo docker-compose up -d)
+```
+
+The server uses default settings and credentials for the MySQL database. These settings can be changed by the `simple-kbs` administrator and saved into a credential file. For the purposes of this quick start, export them in the environment for use with the MySQL client command line:
+
+```
+export KBS_DB_USER="kbsuser"
+export KBS_DB_PW="kbspassword"
+export KBS_DB="simple_kbs"
+export KBS_DB_TYPE="mysql"
+```
+
+Retrieve the host address of the MySQL database container:
+
+```
+export KBS_DB_HOST=$(sudo docker network inspect simple-kbs_default \
+  | jq -r '.[].Containers[] | select(.Name | test("simple-kbs_db.*")).IPv4Address' \
+  | sed "s|/.*$||g")
+```
 
 # Trusted Ephemeral Storage for container images
 
